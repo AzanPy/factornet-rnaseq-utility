@@ -198,7 +198,14 @@ class FactorNet:
         gradients = tape.gradient(predictions, X)
         saliency_scores = tf.abs(gradients).numpy()
         conv_weights = self.model.layers[1].get_weights()
-        return {'saliency_scores': saliency_scores, 'predictions': predictions.numpy().flatten(), 'conv_weights': conv_weights, 'sequences': sequences}
+        import numpy as np
+        conv_weights = np.array(conv_weights)  # Ensure numpy array
+        return {
+            'saliency_scores': saliency_scores,
+            'predictions': predictions.numpy().flatten(),
+            'conv_weights': conv_weights,
+            'sequences': sequences
+        }
 
     def save_model(self, filepath: str):
         if self.model is None:
