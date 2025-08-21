@@ -1,0 +1,19 @@
+# FactorNet RNA-seq Utility Requirements
+# Install with: pip install -r requirements.txt
+
+# Core machine learning
+tensorflow>=2.8.0
+numpy>=1.21.0
+pandas>=1.3.0
+
+# Data handling
+requests>=2.25.0
+tqdm>=4.62.0
+
+# Optional: For GEO data loading (if available)
+# GEOparse>=2.0.3
+
+# Development and visualization (optional)
+matplotlib>=3.5.0
+seaborn>=0.11.0
+jupyter>=1.0.0
