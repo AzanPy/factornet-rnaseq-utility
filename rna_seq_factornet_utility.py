@@ -130,7 +130,12 @@ class GEODataLoader:
             expr_mean = normalized_data.loc[gene].mean()
             label = 1 if expr_mean > normalized_data.values.mean() else 0
             labels.append(label)
-        return {'sequences': sequences, 'labels': labels, 'expression_data': normalized_data, 'gene_names': expression_data.index[:100].tolist()}
+        return {
+            'sequences': sequences,
+            'labels': labels,
+            'expression_data': normalized_data,
+            'gene_names': expression_data.index[:100].tolist()
+        }
 
 class FactorNet:
     """Custom implementation of FactorNet"""
@@ -164,7 +169,11 @@ class FactorNet:
         dropout = layers.Dropout(self.dropout_rate)(dense1)
         output = layers.Dense(1, activation='sigmoid', name='binding_prediction')(dropout)
         model = keras.Model(inputs=sequence_input, outputs=output, name='FactorNet')
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy', 'precision', 'recall'])
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=0.001),
+            loss='binary_crossentropy',
+            metrics=['accuracy', 'precision', 'recall']
+        )
         self.model = model
         return model
 
@@ -174,9 +183,17 @@ class FactorNet:
             self.build_model()
         X = self._one_hot_encode(sequences)
         y = np.array(labels)
-        self.history = self.model.fit(X, y, validation_split=validation_split, epochs=epochs, batch_size=batch_size, verbose=1,
-                                      callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
-                                                 keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)])
+        self.history = self.model.fit(
+            X, y,
+            validation_split=validation_split,
+            epochs=epochs,
+            batch_size=batch_size,
+            verbose=1,
+            callbacks=[
+                keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+                keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)
+            ]
+        )
         return self.history.history
 
     def predict(self, sequences: List[str]) -> np.ndarray:
@@ -190,20 +207,23 @@ class FactorNet:
         print("Interpreting model predictions...")
         if self.model is None:
             raise ValueError("Model not trained yet. Call train() first.")
+        
         X_np = self._one_hot_encode(sequences)
         X = tf.convert_to_tensor(X_np, dtype=tf.float32)  # Convert numpy array to tf.Tensor
+        
         with tf.GradientTape() as tape:
             tape.watch(X)
             predictions = self.model(X)
         gradients = tape.gradient(predictions, X)
         saliency_scores = tf.abs(gradients).numpy()
-        conv_weights = self.model.layers[1].get_weights()
-        import numpy as np
-        conv_weights = np.array(conv_weights)  # Ensure numpy array
+        
+        # Fix: Get convolutional weights as list of arrays, do not convert to single np.array
+        conv_weights = self.model.layers[1].get_weights()  # This returns [kernel_weights, biases]
+        
         return {
             'saliency_scores': saliency_scores,
             'predictions': predictions.numpy().flatten(),
-            'conv_weights': conv_weights,
+            'conv_weights': conv_weights,  # List of weight arrays as is
             'sequences': sequences
         }
 
@@ -241,7 +261,13 @@ class RNASeqFactorNetPipeline:
         batch_size = kwargs.pop('batch_size', 32)
         validation_split = kwargs.pop('validation_split', 0.2)
         self.factor_net = FactorNet(**kwargs)
-        history = self.factor_net.train(self.processed_data['sequences'], self.processed_data['labels'], epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+        history = self.factor_net.train(
+            self.processed_data['sequences'],
+            self.processed_data['labels'],
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_split=validation_split
+        )
         return history
 
     def predict_binding(self, sequences: List[str]) -> np.ndarray:
@@ -293,7 +319,7 @@ def run_example_analysis():
     interpretation = pipeline.interpret_predictions(test_sequences[:3])
     print(f"\nInterpretation results:")
     print(f"- Saliency scores shape: {interpretation['saliency_scores'].shape}")
-    print(f"- Convolutional weights shape: {interpretation['conv_weights'].shape}")
+    print(f"- Convolutional weights: {[w.shape for w in interpretation['conv_weights']]}")
     print("\nSaving pipeline...")
     pipeline.save_pipeline("./factornet_pipeline")
     print("\n" + "=" * 60)
