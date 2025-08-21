@@ -174,7 +174,9 @@ class FactorNet:
             self.build_model()
         X = self._one_hot_encode(sequences)
         y = np.array(labels)
-        self.history = self.model.fit(X, y, validation_split=validation_split, epochs=epochs, batch_size=batch_size, verbose=1, callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True), keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)])
+        self.history = self.model.fit(X, y, validation_split=validation_split, epochs=epochs, batch_size=batch_size, verbose=1,
+                                      callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+                                                 keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.0001)])
         return self.history.history
 
     def predict(self, sequences: List[str]) -> np.ndarray:
@@ -188,12 +190,13 @@ class FactorNet:
         print("Interpreting model predictions...")
         if self.model is None:
             raise ValueError("Model not trained yet. Call train() first.")
-        X = self._one_hot_encode(sequences)
+        X_np = self._one_hot_encode(sequences)
+        X = tf.convert_to_tensor(X_np, dtype=tf.float32)  # Convert numpy array to tf.Tensor
         with tf.GradientTape() as tape:
             tape.watch(X)
             predictions = self.model(X)
         gradients = tape.gradient(predictions, X)
-        saliency_scores = np.abs(gradients.numpy())
+        saliency_scores = tf.abs(gradients).numpy()
         conv_weights = self.model.layers[1].get_weights()
         return {'saliency_scores': saliency_scores, 'predictions': predictions.numpy().flatten(), 'conv_weights': conv_weights, 'sequences': sequences}
 
@@ -242,6 +245,7 @@ class RNASeqFactorNetPipeline:
     def interpret_predictions(self, sequences: List[str] = None) -> Dict:
         if sequences is None:
             sequences = self.processed_data['sequences'][:10]
+        sequences = list(sequences)  # Ensure list of strings
         return self.factor_net.interpret_model(sequences)
 
     def save_pipeline(self, filepath: str):
